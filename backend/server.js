@@ -10,7 +10,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const cors = require('cors'); // Required for frontend-backend communication
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors());
