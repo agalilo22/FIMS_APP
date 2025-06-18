@@ -1,0 +1,239 @@
+// frontend/src/pages/Clients.js
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import Navbar from '../components/Layout/Navbar';
+import Sidebar from '../components/Layout/Sidebar';
+import ClientFormModal from '../components/Client/ClientFormModal';
+
+const Clients = () => {
+    const [clients, setClients] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingClient, setEditingClient] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [minRevenueFilter, setMinRevenueFilter] = useState('');
+    const [maxRevenueFilter, setMaxRevenueFilter] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalClients, setTotalClients] = useState(0);
+
+    const user = JSON.parse(localStorage.getItem('user'));
+    const userRole = user ? user.role : '';
+    const navigate = useNavigate(); // Initialize navigate
+
+    const fetchClients = async (page = 1) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('token');
+            const params = {
+                page,
+                limit: 10,
+                search: searchQuery,
+                minRevenue: minRevenueFilter,
+                maxRevenue: maxRevenueFilter,
+            };
+            const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/clients`, {
+                headers: { Authorization: `Bearer ${token}` },
+                params,
+            });
+            setClients(res.data.clients);
+            setTotalPages(res.data.totalPages);
+            setCurrentPage(res.data.currentPage);
+            setTotalClients(res.data.totalClients);
+        } catch (err) {
+            console.error('Error fetching clients:', err.response ? err.response.data : err.message);
+            setError('Failed to fetch clients. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchClients(currentPage);
+    }, [currentPage, searchQuery, minRevenueFilter, maxRevenueFilter]);
+
+    const handleAddClient = () => {
+        setEditingClient(null);
+        setIsModalOpen(true);
+    };
+
+    const handleEditClient = (client) => {
+        setEditingClient(client);
+        setIsModalOpen(true);
+    };
+
+    const handleDeleteClient = async (clientId) => {
+        if (window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+            try {
+                const token = localStorage.getItem('token');
+                await axios.delete(`${process.env.REACT_APP_BACKEND_URL}/api/clients/${clientId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                alert('Client deleted successfully!');
+                fetchClients(currentPage);
+            } catch (err) {
+                console.error('Error deleting client:', err.response ? err.response.data : err.message);
+                alert('Failed to delete client: ' + (err.response?.data?.message || err.message));
+            }
+        }
+    };
+
+    const handleClientSaved = () => {
+        setIsModalOpen(false);
+        fetchClients(currentPage);
+    };
+
+    return (
+        <div className="flex">
+            <Sidebar />
+            <div className="flex-1">
+                <Navbar />
+                <div className="p-6 bg-gray-50 min-h-screen">
+                    <h1 className="text-3xl font-bold text-gray-800 mb-6">Client Management</h1>
+
+                    <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+                        <div className="flex items-center gap-4 w-full md:w-auto">
+                            <input
+                                type="text"
+                                placeholder="Search by name or email..."
+                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            <input
+                                type="number"
+                                placeholder="Min Revenue"
+                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+                                value={minRevenueFilter}
+                                onChange={(e) => setMinRevenueFilter(e.target.value)}
+                            />
+                            <input
+                                type="number"
+                                placeholder="Max Revenue"
+                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+                                value={maxRevenueFilter}
+                                onChange={(e) => setMaxRevenueFilter(e.target.value)}
+                            />
+                        </div>
+                        {(userRole === 'admin' || userRole === 'analyst') && (
+                            <button
+                                onClick={handleAddClient}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-300 w-full md:w-auto"
+                            >
+                                Add New Client
+                            </button>
+                        )}
+                    </div>
+
+                    {loading && <p className="text-center text-gray-600">Loading clients...</p>}
+                    {error && <p className="text-center text-red-500">{error}</p>}
+                    {!loading && clients.length === 0 && !error && (
+                        <p className="text-center text-gray-600">No clients found.</p>
+                    )}
+
+                    {!loading && clients.length > 0 && (
+                        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expenses</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Profit</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {clients.map((client) => (
+                                        <tr key={client._id}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{client.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{client.email}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${client.financials.revenue.toLocaleString()}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${client.financials.expenses.toLocaleString()}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${client.financials.netProfit.toLocaleString()}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button
+                                                    onClick={() => navigate(`/clients/${client._id}`)}
+                                                    className="text-blue-600 hover:text-blue-900 mr-4"
+                                                >
+                                                    View Details
+                                                </button>
+                                                {(userRole === 'admin' || userRole === 'analyst') && (
+                                                    <button
+                                                        onClick={() => handleEditClient(client)}
+                                                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )}
+                                                {userRole === 'admin' && (
+                                                    <button
+                                                        onClick={() => handleDeleteClient(client._id)}
+                                                        className="text-red-600 hover:text-red-900"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )}
+                                                {userRole === 'viewer' && !['admin', 'analyst'].includes(userRole) && (
+                                                    <span className="text-gray-500">No actions</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 bg-gray-50">
+                                <p className="text-sm text-gray-700">
+                                    Showing <span className="font-medium">{(currentPage - 1) * 10 + 1}</span> to{' '}
+                                    <span className="font-medium">{Math.min(currentPage * 10, totalClients)}</span> of{' '}
+                                    <span className="font-medium">{totalClients}</span> results
+                                </p>
+                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Previous
+                                    </button>
+                                    {[...Array(totalPages)].map((_, i) => (
+                                        <button
+                                            key={i + 1}
+                                            onClick={() => setCurrentPage(i + 1)}
+                                            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Next
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {isModalOpen && (
+                <ClientFormModal
+                    client={editingClient}
+                    onClose={() => setIsModalOpen(false)}
+                    onSave={handleClientSaved}
+                />
+            )}
+        </div>
+    );
+};
+
+export default Clients;
