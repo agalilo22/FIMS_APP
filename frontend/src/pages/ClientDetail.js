@@ -1,154 +1,91 @@
-// frontend/src/pages/ClientDetail.js
-import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
+// frontend/src/pages/Clients.js
+import React, { useState, useEffect, useCallback } from 'react'; // ADD useCallback
 import axios from 'axios';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Layout/Navbar';
 import Sidebar from '../components/Layout/Sidebar';
+import ClientFormModal from '../components/Client/ClientFormModal';
 
-const ClientDetail = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const [client, setClient] = useState(null);
+const Clients = () => {
+    const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [uploading, setUploading] = useState(false);
-    const [uploadError, setUploadError] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingClient, setEditingClient] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [minRevenueFilter, setMinRevenueFilter] = useState('');
+    const [maxRevenueFilter, setMaxRevenueFilter] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalClients, setTotalClients] = useState(0);
 
-    // Get user info from localStorage (ensure this is consistent with how you store it after login)
-    // It's safer to parse this once and use it.
-    const user = JSON.parse(localStorage.getItem('user')) || {};
-    const userRole = user.role || ''; // Default to empty string if no user or role
+    const user = JSON.parse(localStorage.getItem('user'));
+    const userRole = user ? user.role : '';
+    const navigate = useNavigate();
 
-    // Wrap fetchClientDetails in useCallback to stabilize it for useEffect's dependency array
-    const fetchClientDetails = useCallback(async () => {
+    // Wrap fetchClients in useCallback
+    const fetchClients = useCallback(async (page = 1) => {
         setLoading(true);
         setError(null);
         try {
             const token = localStorage.getItem('token');
-            if (!token) {
-                // If no token, redirect to login or show error
-                navigate('/login');
-                return;
-            }
-            const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/clients/${id}`, { // <-- FIX IS HERE!
+            const params = {
+                page,
+                limit: 10,
+                search: searchQuery,
+                minRevenue: minRevenueFilter,
+                maxRevenue: maxRevenueFilter,
+            };
+            const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/clients`, {
                 headers: { Authorization: `Bearer ${token}` },
+                params,
             });
-            setClient(res.data);
+            setClients(res.data.clients);
+            setTotalPages(res.data.totalPages);
+            setCurrentPage(res.data.currentPage);
+            setTotalClients(res.data.totalClients);
         } catch (err) {
-            console.error('Error fetching client details:', err.response ? err.response.data : err.message);
-            setError('Failed to load client details. You might not have access or the client does not exist.');
-            // Optionally navigate back if client not found or unauthorized
-            if (err.response && (err.response.status === 404 || err.response.status === 403)) {
-                navigate('/clients'); // Go back to clients list
-            }
+            console.error('Error fetching clients:', err.response ? err.response.data : err.message);
+            setError('Failed to fetch clients. Please try again.');
         } finally {
             setLoading(false);
         }
-    }, [id, navigate]); // Add id and navigate to useCallback dependencies
+    }, [searchQuery, minRevenueFilter, maxRevenueFilter]); // Add dependencies for useCallback
 
     useEffect(() => {
-        // Only fetch if an ID is present in the URL
-        if (id) {
-            fetchClientDetails();
-        } else {
-            setLoading(false); // If no ID, no loading, just show not found
-            setError('No client ID provided.');
-        }
-    }, [id, fetchClientDetails]); // Now fetchClientDetails is stable thanks to useCallback
+        fetchClients(currentPage);
+    }, [fetchClients, currentPage]); // ADD 'fetchClients' to useEffect's dependency array
 
-    const handleFileChange = (event) => {
-        setSelectedFile(event.target.files[0]);
+    const handleAddClient = () => {
+        setEditingClient(null);
+        setIsModalOpen(true);
     };
 
-    const handleFileUpload = async () => {
-        if (!selectedFile) {
-            setUploadError('Please select a file to upload.');
-            return;
-        }
+    const handleEditClient = (client) => {
+        setEditingClient(client);
+        setIsModalOpen(true);
+    };
 
-        setUploading(true);
-        setUploadError(null);
-
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('clientId', id);
-
-        try {
-            const token = localStorage.getItem('token');
-            await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/files/upload`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            alert('File uploaded successfully!');
-            setSelectedFile(null); // Clear selected file
-            fetchClientDetails(); // Refresh client details to show new file
-        } catch (err) {
-            console.error('File upload error:', err.response ? err.response.data : err.message);
-            setUploadError('Failed to upload file: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setUploading(false);
+    const handleDeleteClient = async (clientId) => {
+        if (window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+            try {
+                const token = localStorage.getItem('token');
+                await axios.delete(`${process.env.REACT_APP_BACKEND_URL}/api/clients/${clientId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                alert('Client deleted successfully!');
+                fetchClients(currentPage);
+            } catch (err) {
+                console.error('Error deleting client:', err.response ? err.response.data : err.message);
+                alert('Failed to delete client: ' + (err.response?.data?.message || err.message));
+            }
         }
     };
 
-    const handleFileDownload = async (fileUrl) => {
-        try {
-            const token = localStorage.getItem('token');
-            // Get a pre-signed URL for secure download
-            const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/files/signed-url`, {
-                params: { clientId: id, fileUrl }, // Pass fileUrl in params
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            window.open(res.data.signedUrl, '_blank'); // Open in new tab for download
-        } catch (err) {
-            console.error('Error downloading file:', err.response ? err.response.data : err.message);
-            alert('Failed to download file: ' + (err.response?.data?.message || err.message));
-        }
+    const handleClientSaved = () => {
+        setIsModalOpen(false);
+        fetchClients(currentPage);
     };
-
-    const handleDeleteFile = async (fileUrl) => {
-        if (!window.confirm('Are you sure you want to delete this file?')) return;
-        try {
-            const token = localStorage.getItem('token');
-            await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/files/delete`, { clientId: id, fileUrl }, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            alert('File deleted successfully!');
-            fetchClientDetails(); // Refresh client details
-        } catch (err) {
-            console.error('Error deleting file:', err.response ? err.response.data : err.message);
-            alert('Failed to delete file: ' + (err.response?.data?.message || err.message));
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex">
-                <Sidebar />
-                <div className="flex-1 p-6"><Navbar /><p className="text-center mt-20">Loading client details...</p></div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="flex">
-                <Sidebar />
-                <div className="flex-1 p-6"><Navbar /><p className="text-center mt-20 text-red-500">{error}</p></div>
-            </div>
-        );
-    }
-
-    if (!client) {
-        return (
-            <div className="flex">
-                <Sidebar />
-                <div className="flex-1 p-6"><Navbar /><p className="text-center mt-20">Client not found.</p></div>
-            </div>
-        );
-    }
 
     return (
         <div className="flex">
@@ -156,99 +93,148 @@ const ClientDetail = () => {
             <div className="flex-1">
                 <Navbar />
                 <div className="p-6 bg-gray-50 min-h-screen">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-6">{client.name}'s Profile</h1>
+                    <h1 className="text-3xl font-bold text-gray-800 mb-6">Client Management</h1>
 
-                    <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Client Information</h2>
-                        <p className="mb-2"><span className="font-medium">Email:</span> {client.email}</p>
-                        <p className="mb-2"><span className="font-medium">Phone:</span> {client.phone || 'N/A'}</p>
-                        <p className="mb-2"><span className="font-medium">Notes:</span> {client.notes || 'N/A'}</p>
-                        <p className="mb-2"><span className="font-medium">Tags:</span> {client.tags && client.tags.length > 0 ? client.tags.join(', ') : 'N/A'}</p>
-
-                        <h3 className="text-xl font-semibold mt-6 mb-3 text-gray-800">Financials</h3>
-                        {/* Ensure client.financials exists before accessing its properties */}
-                        {client.financials ? (
-                            <>
-                                <p className="mb-1"><span className="font-medium">Revenue:</span> ${client.financials.revenue?.toLocaleString()}</p>
-                                <p className="mb-1"><span className="font-medium">Expenses:</span> ${client.financials.expenses?.toLocaleString()}</p>
-                                <p className="mb-1"><span className="font-medium">Net Profit:</span> ${client.financials.netProfit?.toLocaleString()}</p>
-                            </>
-                        ) : (
-                            <p className="mb-1 text-gray-600">Financial data not available.</p>
+                    <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+                        <div className="flex items-center gap-4 w-full md:w-auto">
+                            <input
+                                type="text"
+                                placeholder="Search by name or email..."
+                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            <input
+                                type="number"
+                                placeholder="Min Revenue"
+                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+                                value={minRevenueFilter}
+                                onChange={(e) => setMinRevenueFilter(e.target.value)}
+                            />
+                            <input
+                                type="number"
+                                placeholder="Max Revenue"
+                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+                                value={maxRevenueFilter}
+                                onChange={(e) => setMaxRevenueFilter(e.target.value)}
+                            />
+                        </div>
+                        {(userRole === 'admin' || userRole === 'analyst') && (
+                            <button
+                                onClick={handleAddClient}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-300 w-full md:w-auto"
+                            >
+                                Add New Client
+                            </button>
                         )}
                     </div>
 
-                    {/* File Upload Section */}
-                    <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-                        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Financial Documents</h2>
+                    {loading && <p className="text-center text-gray-600">Loading clients...</p>}
+                    {error && <p className="text-center text-red-500">{error}</p>}
+                    {!loading && clients.length === 0 && !error && (
+                        <p className="text-center text-gray-600">No clients found.</p>
+                    )}
 
-                        {(userRole === 'admin' || userRole === 'analyst') && (
-                            <div className="mb-6 border p-4 rounded-md bg-blue-50 border-blue-200">
-                                <h3 className="text-lg font-medium text-blue-800 mb-3">Upload New Document</h3>
-                                <input
-                                    type="file"
-                                    onChange={handleFileChange}
-                                    className="block w-full text-sm text-gray-500
-                                             file:mr-4 file:py-2 file:px-4
-                                             file:rounded-full file:border-0
-                                             file:text-sm file:font-semibold
-                                             file:bg-blue-50 file:text-blue-700
-                                             hover:file:bg-blue-100"
-                                />
-                                {uploadError && <p className="text-red-500 text-sm mt-2">{uploadError}</p>}
-                                <button
-                                    onClick={handleFileUpload}
-                                    disabled={!selectedFile || uploading}
-                                    className="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-300 disabled:opacity-50"
-                                >
-                                    {uploading ? 'Uploading...' : 'Upload Document'}
-                                </button>
-                            </div>
-                        )}
-
-                        {client.fileUrls && client.fileUrls.length > 0 ? (
-                            <div className="mt-4">
-                                <h3 className="text-lg font-medium text-gray-800 mb-3">Uploaded Documents</h3>
-                                <ul className="divide-y divide-gray-200 border border-gray-200 rounded-md">
-                                    {client.fileUrls.map((file, index) => (
-                                        <li key={index} className="flex justify-between items-center p-3 hover:bg-gray-50">
-                                            {/* Display file name (assuming file object has fileName property) */}
-                                            <span className="text-gray-700 font-medium">{file.fileName || file.url.split('/').pop()}</span>
-                                            <div className="flex items-center space-x-3">
+                    {!loading && clients.length > 0 && (
+                        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expenses</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Profit</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {clients.map((client) => (
+                                        <tr key={client._id}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{client.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{client.email}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${client.financials.revenue.toLocaleString()}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${client.financials.expenses.toLocaleString()}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${client.financials.netProfit.toLocaleString()}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button
-                                                    onClick={() => handleFileDownload(file.url)}
-                                                    className="text-blue-600 hover:text-blue-900 text-sm"
+                                                    onClick={() => navigate(`/clients/${client._id}`)}
+                                                    className="text-blue-600 hover:text-blue-900 mr-4"
                                                 >
-                                                    Download
+                                                    View Details
                                                 </button>
+                                                {(userRole === 'admin' || userRole === 'analyst') && (
+                                                    <button
+                                                        onClick={() => handleEditClient(client)}
+                                                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )}
                                                 {userRole === 'admin' && (
                                                     <button
-                                                        onClick={() => handleDeleteFile(file.url)}
-                                                        className="text-red-600 hover:text-red-900 text-sm"
+                                                        onClick={() => handleDeleteClient(client._id)}
+                                                        className="text-red-600 hover:text-red-900"
                                                     >
                                                         Delete
                                                     </button>
                                                 )}
-                                            </div>
-                                        </li>
+                                                {userRole === 'viewer' && !['admin', 'analyst'].includes(userRole) && (
+                                                    <span className="text-gray-500">No actions</span>
+                                                )}
+                                            </td>
+                                        </tr>
                                     ))}
-                                </ul>
-                            </div>
-                        ) : (
-                            <p className="text-gray-600">No documents uploaded for this client yet.</p>
-                        )}
-                    </div>
+                                </tbody>
+                            </table>
 
-                    <button
-                        onClick={() => navigate('/clients')}
-                        className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-md mt-6"
-                    >
-                        Back to Clients
-                    </button>
+                            <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 bg-gray-50">
+                                <p className="text-sm text-gray-700">
+                                    Showing <span className="font-medium">{(currentPage - 1) * 10 + 1}</span> to{' '}
+                                    <span className="font-medium">{Math.min(currentPage * 10, totalClients)}</span> of{' '}
+                                    <span className="font-medium">{totalClients}</span> results
+                                </p>
+                                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Previous
+                                    </button>
+                                    {[...Array(totalPages)].map((_, i) => (
+                                        <button
+                                            key={i + 1}
+                                            onClick={() => setCurrentPage(i + 1)}
+                                            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Next
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {isModalOpen && (
+                <ClientFormModal
+                    client={editingClient}
+                    onClose={() => setIsModalOpen(false)}
+                    onSave={handleClientSaved}
+                />
+            )}
         </div>
     );
 };
 
-export default ClientDetail;
+export default Clients;

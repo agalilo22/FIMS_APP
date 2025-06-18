@@ -71,7 +71,8 @@ const ClientFormModal = ({ client, onClose, onSave }) => {
 
             if (client) {
                 // Update existing client
-                await axios.put(`<span class="math-inline">\{process\.env\.REACT\_APP\_BACKEND\_URL\}/api/clients/</span>{client._id}`, formData, config);
+                // FIX: Remove unnecessary escape characters and span tags
+                await axios.put(`${process.env.REACT_APP_BACKEND_URL}/api/clients/${client._id}`, formData, config);
                 alert('Client updated successfully!');
             } else {
                 // Create new client

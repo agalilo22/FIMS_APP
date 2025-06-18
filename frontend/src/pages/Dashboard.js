@@ -24,7 +24,8 @@ const Dashboard = () => {
 
                 // Format monthly data for Recharts
                 const formattedMonthlyData = res.data.monthlyData.map(item => ({
-                    name: `<span class="math-inline">\{item\.\_id\.year\}\-</span>{String(item._id.month).padStart(2, '0')}`,
+                    // FIX: Remove unnecessary escape characters and span tags
+                    name: `${item._id.year}-${String(item._id.month).padStart(2, '0')}`,
                     Revenue: item.monthlyRevenue,
                     Expenses: item.monthlyExpenses,
                     'Net Profit': item.monthlyNetProfit,

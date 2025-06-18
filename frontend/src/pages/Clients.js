@@ -1,7 +1,7 @@
 // frontend/src/pages/Clients.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // <--- Ensure 'useCallback' is imported here
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Layout/Navbar';
 import Sidebar from '../components/Layout/Sidebar';
 import ClientFormModal from '../components/Client/ClientFormModal';
@@ -21,9 +21,10 @@ const Clients = () => {
 
     const user = JSON.parse(localStorage.getItem('user'));
     const userRole = user ? user.role : '';
-    const navigate = useNavigate(); // Initialize navigate
+    const navigate = useNavigate();
 
-    const fetchClients = async (page = 1) => {
+    // The fetchClients function should be wrapped in useCallback
+    const fetchClients = useCallback(async (page = 1) => {
         setLoading(true);
         setError(null);
         try {
@@ -49,11 +50,11 @@ const Clients = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchQuery, minRevenueFilter, maxRevenueFilter]); // <--- These are the dependencies for useCallback
 
     useEffect(() => {
         fetchClients(currentPage);
-    }, [currentPage, searchQuery, minRevenueFilter, maxRevenueFilter]);
+    }, [fetchClients, currentPage]); // <--- 'fetchClients' must be included here as a dependency
 
     const handleAddClient = () => {
         setEditingClient(null);
