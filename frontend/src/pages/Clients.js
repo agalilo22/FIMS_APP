@@ -1,5 +1,5 @@
 // frontend/src/pages/Clients.js
-import React, { useState, useEffect, useCallback } from 'react'; // <--- Ensure 'useCallback' is imported here
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Layout/Navbar';
@@ -15,6 +15,8 @@ const Clients = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [minRevenueFilter, setMinRevenueFilter] = useState('');
     const [maxRevenueFilter, setMaxRevenueFilter] = useState('');
+    const [minRevenueFilterError, setMinRevenueFilterError] = useState(''); // New state for filter errors
+    const [maxRevenueFilterError, setMaxRevenueFilterError] = useState(''); // New state for filter errors
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalClients, setTotalClients] = useState(0);
@@ -23,18 +25,48 @@ const Clients = () => {
     const userRole = user ? user.role : '';
     const navigate = useNavigate();
 
-    // The fetchClients function should be wrapped in useCallback
+    // Helper for numeric filter input validation
+    const validateFilterInput = (value, setErrorState) => {
+        if (value === '') {
+            setErrorState(''); // Clear error if input is empty
+            return true;
+        }
+        const numValue = Number(value);
+        if (isNaN(numValue)) {
+            setErrorState('Invalid number.');
+            return false;
+        }
+        // Check for excessively large numbers or negative values
+        if (!Number.isFinite(numValue) || numValue > Number.MAX_SAFE_INTEGER || numValue < 0) {
+            setErrorState('Too large/negative.');
+            return false;
+        }
+        setErrorState(''); // Clear error if valid
+        return true;
+    };
+
     const fetchClients = useCallback(async (page = 1) => {
         setLoading(true);
         setError(null);
+
+        // Frontend validation for filters before fetching
+        const isValidMinRevenue = validateFilterInput(minRevenueFilter, setMinRevenueFilterError);
+        const isValidMaxRevenue = validateFilterInput(maxRevenueFilter, setMaxRevenueFilterError);
+
+        if (!isValidMinRevenue || !isValidMaxRevenue) {
+            setLoading(false);
+            setError("Please correct the revenue filter values.");
+            return; // Stop execution if validation fails
+        }
+
         try {
             const token = localStorage.getItem('token');
             const params = {
                 page,
                 limit: 10,
                 search: searchQuery,
-                minRevenue: minRevenueFilter,
-                maxRevenue: maxRevenueFilter,
+                minRevenue: minRevenueFilter, // Send as string, backend will parse/validate
+                maxRevenue: maxRevenueFilter, // Send as string, backend will parse/validate
             };
             const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/clients`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -42,19 +74,33 @@ const Clients = () => {
             });
             setClients(res.data.clients);
             setTotalPages(res.data.totalPages);
-            setCurrentPage(res.data.currentPage);
+            setCurrentPage(res.data.currentPage); // Make sure this state update doesn't cause extra fetches
             setTotalClients(res.data.totalClients);
         } catch (err) {
             console.error('Error fetching clients:', err.response ? err.response.data : err.message);
-            setError('Failed to fetch clients. Please try again.');
+            setError('Failed to fetch clients. ' + (err.response?.data?.message || err.message)); // Display backend error for filters
         } finally {
             setLoading(false);
         }
-    }, [searchQuery, minRevenueFilter, maxRevenueFilter]); // <--- These are the dependencies for useCallback
+    }, [searchQuery, minRevenueFilter, maxRevenueFilter]); // Dependencies for useCallback are the filters
 
     useEffect(() => {
+        // Debounce filter changes to avoid excessive API calls
+        const handler = setTimeout(() => {
+            // When filters change, always reset to page 1
+            setCurrentPage(1); // Setting currentPage to 1 will trigger the other useEffect
+        }, 500); // Debounce for 500ms
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchQuery, minRevenueFilter, maxRevenueFilter]); // Only filters are dependencies here
+
+    useEffect(() => {
+        // This useEffect handles pagination clicks and initial load
+        // It will be triggered whenever currentPage changes (including when it's set to 1 by the filter useEffect)
         fetchClients(currentPage);
-    }, [fetchClients, currentPage]); // <--- 'fetchClients' must be included here as a dependency
+    }, [fetchClients, currentPage]); // fetchClients is stable due to useCallback, currentPage changes on pagination
 
     const handleAddClient = () => {
         setEditingClient(null);
@@ -104,20 +150,32 @@ const Clients = () => {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
-                            <input
-                                type="number"
-                                placeholder="Min Revenue"
-                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
-                                value={minRevenueFilter}
-                                onChange={(e) => setMinRevenueFilter(e.target.value)}
-                            />
-                            <input
-                                type="number"
-                                placeholder="Max Revenue"
-                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
-                                value={maxRevenueFilter}
-                                onChange={(e) => setMaxRevenueFilter(e.target.value)}
-                            />
+                            <div>
+                                <input
+                                    type="text" // Changed from type="number"
+                                    placeholder="Min Revenue"
+                                    className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32 ${minRevenueFilterError ? 'border-red-500' : 'border-gray-300'}`}
+                                    value={minRevenueFilter}
+                                    onChange={(e) => {
+                                        setMinRevenueFilter(e.target.value);
+                                        validateFilterInput(e.target.value, setMinRevenueFilterError);
+                                    }}
+                                />
+                                {minRevenueFilterError && <p className="text-red-500 text-xs italic mt-1">{minRevenueFilterError}</p>}
+                            </div>
+                            <div>
+                                <input
+                                    type="text" // Changed from type="number"
+                                    placeholder="Max Revenue"
+                                    className={`p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32 ${maxRevenueFilterError ? 'border-red-500' : 'border-gray-300'}`}
+                                    value={maxRevenueFilter}
+                                    onChange={(e) => {
+                                        setMaxRevenueFilter(e.target.value);
+                                        validateFilterInput(e.target.value, setMaxRevenueFilterError);
+                                    }}
+                                />
+                                {maxRevenueFilterError && <p className="text-red-500 text-xs italic mt-1">{maxRevenueFilterError}</p>}
+                            </div>
                         </div>
                         {(userRole === 'admin' || userRole === 'analyst') && (
                             <button
@@ -164,12 +222,14 @@ const Clients = () => {
                                                     View Details
                                                 </button>
                                                 {(userRole === 'admin' || userRole === 'analyst') && (
-                                                    <button
-                                                        onClick={() => handleEditClient(client)}
-                                                        className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                                    >
-                                                        Edit
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleEditClient(client)}
+                                                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                    </>
                                                 )}
                                                 {userRole === 'admin' && (
                                                     <button

@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const ALLOWED_DOMAIN = '@mmdc.mcl.edu.ph'; // Define the allowed domain
 
 exports.googleAuth = async (req, res) => {
     const { id_token } = req.body;
@@ -15,6 +16,12 @@ exports.googleAuth = async (req, res) => {
         });
         const payload = ticket.getPayload();
         const { sub: googleId, email, name, picture } = payload;
+
+        // --- NEW: Domain Check ---
+        if (!email || !email.endsWith(ALLOWED_DOMAIN)) {
+            return res.status(403).json({ message: 'Authentication failed: You do not belong to the allowed domain.' });
+        }
+        // --- END NEW ---
 
         let user = await User.findOne({ googleId });
 
