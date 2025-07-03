@@ -10,7 +10,7 @@ const Login = () => {
     const [errorMessage, setErrorMessage] = useState(''); // State for error messages
 
     // Define your allowed domain
-    const ALLOWED_DOMAIN = 'galileo.edu.ph'; // Replace with your actual registered domain
+    const ALLOWED_DOMAIN = 'mmdc.mcl.edu.ph'; // Replace with your actual registered domain
 
     const responseGoogle = async (response) => {
         setErrorMessage(''); // Clear previous errors
@@ -26,7 +26,7 @@ const Login = () => {
                 const userDomain = userEmail.split('@')[1];
 
                 if (userDomain !== ALLOWED_DOMAIN) {
-                    setErrorMessage("Please sign in with the registered domain Google Account (e.g., your@galileo.edu.ph).");
+                    setErrorMessage("Please sign in with the registered domain Google Account (e.g., your@mmdc.mcl.edu.ph).");
                     return; // Stop the login process
                 }
 
