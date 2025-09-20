@@ -1,87 +1,115 @@
-FIMS (Financial Information Management System)
-FIMS is a web application designed to manage financial information. It features a dashboard, client list, and file upload functionality, with user authentication powered by Google.
 
-Features
-Google OAuth 2.0 Authentication: Secure login using your Google account.
+# FIMS (Financial Information Management System)
 
-User Role Management: Assigns roles (admin, analyst, viewer) to users upon first login.
+FIMS is a web application designed to manage financial information. It provides a **dashboard**, **client list**, and **file upload functionality**, with secure user authentication powered by **Google OAuth 2.0**.
 
-Client Management: View and manage a list of clients.
+---
 
-File Uploads: Functionality to upload files.
+## 🚀 Features
 
-Dashboard: A central hub for managing financial data.
+* **Google OAuth 2.0 Authentication** – Secure login using your Google account.
+* **User Role Management** – Assigns roles (admin, analyst, viewer) upon first login.
+* **Client Management** – View and manage a list of clients.
+* **File Uploads** – Upload and manage financial files.
+* **Dashboard** – Central hub for managing financial data.
 
-Technologies Used
-Frontend
-React: A JavaScript library for building user interfaces.
+---
 
-@react-oauth/google: For handling Google OAuth 2.0 on the client side.
+## 🛠️ Technologies Used
 
-Axios: Promise-based HTTP client for making API requests.
+### Frontend
 
-Backend
-Node.js & Express: A fast, unopinionated, minimalist web framework for building the API.
+* [React](https://react.dev/) – UI library for building the interface
+* [@react-oauth/google](https://www.npmjs.com/package/@react-oauth/google) – Google OAuth 2.0 client
+* [Axios](https://axios-http.com/) – Promise-based HTTP client
 
-google-auth-library: A library to verify Google ID tokens on the server.
+### Backend
 
-Mongoose: An elegant MongoDB object modeling for Node.js.
+* [Node.js](https://nodejs.org/) & [Express](https://expressjs.com/) – API server
+* [google-auth-library](https://www.npmjs.com/package/google-auth-library) – Verifies Google ID tokens
+* [Mongoose](https://mongoosejs.com/) – MongoDB object modeling
+* [jsonwebtoken](https://www.npmjs.com/package/jsonwebtoken) – User session handling with JWTs
+* [dotenv](https://www.npmjs.com/package/dotenv) – Environment variable management
+* [cors](https://www.npmjs.com/package/cors) – Cross-Origin Resource Sharing middleware
 
-jsonwebtoken: For creating and verifying JSON Web Tokens (JWTs) for user sessions.
+---
 
-dotenv: To manage environment variables.
+## ⚙️ Getting Started
 
-cors: Middleware to enable Cross-Origin Resource Sharing.
+### Prerequisites
 
-Getting Started
-Prerequisites
-Node.js (LTS version recommended)
+* [Node.js (LTS)](https://nodejs.org/en/)
+* [MongoDB Atlas](https://www.mongodb.com/atlas) account or local MongoDB instance
+* [Google Cloud Console](https://console.cloud.google.com/) project
 
-MongoDB Atlas account or a local MongoDB instance
+---
 
-1. Google OAuth Setup
-Go to the Google Cloud Console.
+### 🔑 Google OAuth Setup
 
-Create a new project.
+1. Go to **Google Cloud Console** → Create a new project.
+2. Navigate to **APIs & Services > OAuth consent screen** → Configure consent screen.
+3. Go to **APIs & Services > Credentials** → Click **Create Credentials > OAuth client ID**.
+4. Select **Web application**.
+5. Add **Authorized JavaScript origins**:
 
-Navigate to APIs & Services > OAuth consent screen and configure the user consent screen.
+   * `http://localhost:3000` (and your production domain)
+6. Click **Create** → Copy the **Client ID** (used in frontend & backend).
 
-Go to APIs & Services > Credentials and click Create Credentials > OAuth client ID.
+---
 
-Select Web application.
+### 🖥️ Backend Setup
 
-For the Frontend Client ID, set the following:
+```bash
+cd fims-project/server
+npm install
+```
 
-Authorized JavaScript origins: http://localhost:3000 (and your production domain)
+Create a `.env` file inside `/server`:
 
-Click Create and copy the Client ID. This will be used in both the frontend and backend.
-
-2. Backend Setup
-Navigate to the server directory: cd fims-project/server
-
-Install dependencies: npm install
-
-Create a .env file in the server directory and add the following variables:
-
+```env
 MONGO_URI=your_mongodb_connection_string
 GOOGLE_CLIENT_ID=your_google_client_id_from_step_1
 JWT_SECRET=your_jwt_secret_token
-Start the backend server: node index.js or nodemon index.js
+```
 
-3. Frontend Setup
-Navigate to the client directory: cd fims-project/client
+Run the backend:
 
-Install dependencies: npm install
+```bash
+node index.js
+# or
+npx nodemon index.js
+```
 
-Create a .env file in the client directory and add the following variables:
+---
 
+### 💻 Frontend Setup
+
+```bash
+cd fims-project/client
+npm install
+```
+
+Create a `.env` file inside `/client`:
+
+```env
 REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id_from_step_1
 REACT_APP_API_URL=http://localhost:5000
-Start the frontend application: npm start
+```
 
-The application will now be running on http://localhost:3000.
+Run the frontend:
 
-Directory Structure
+```bash
+npm start
+```
+
+App will be running on:
+👉 `http://localhost:3000`
+
+---
+
+## 📂 Directory Structure
+
+```
 fims-project/
 ├── client/
 │   ├── public/
@@ -104,7 +132,19 @@ fims-project/
 │   ├── package.json
 │   └── ...
 └── README.md
-Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+```
 
-User Guide - https://docs.google.com/document/d/1qcVzHOb81o8uFY_rvBc4hOFm_g49xw6CjJesjIWCUzU/edit?usp=sharing
+---
+
+## 🤝 Contributing
+
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
+
+---
+
+## 📘 User Guide
+
+👉 [FIMS User Guide](https://docs.google.com/document/d/1qcVzHOb81o8uFY_rvBc4hOFm_g49xw6CjJesjIWCUzU/edit?usp=sharing)
+
+---
+
